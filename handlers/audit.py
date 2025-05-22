@@ -21,7 +21,7 @@ async def start_audit(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("👷 Please enter your full name:")
 
-def build_question_keyboard(question, selected_answer, current_index):
+def build_question_keyboard(question, selected_answer, current_index, total_questions):
     option_buttons = [
         InlineKeyboardButton(
             f"{'✅ ' if opt == selected_answer else ''}{opt}",
@@ -32,13 +32,19 @@ def build_question_keyboard(question, selected_answer, current_index):
     nav_buttons = []
     if current_index > 0:
         nav_buttons.append(InlineKeyboardButton("⬅️ Previous", callback_data="nav:prev"))
+
+    # Show "Next" or "Generate Report" if answered
     if selected_answer:
-        nav_buttons.append(InlineKeyboardButton("➡️ Next", callback_data="nav:next"))
+        if current_index < total_questions - 1:
+            nav_buttons.append(InlineKeyboardButton("➡️ Next", callback_data="nav:next"))
+        else:
+            nav_buttons.append(InlineKeyboardButton("📄 Generate Report", callback_data="generate"))
 
     return InlineKeyboardMarkup([
         option_buttons,
         nav_buttons
     ])
+
 
 async def send_next_question(update, context, user_id):
     state = user_states[user_id]
@@ -64,7 +70,17 @@ async def send_next_question(update, context, user_id):
 
     q = flat_questions[index]
     selected_answer = state["responses"][index] if index < len(state["responses"]) else None
-    keyboard = build_question_keyboard(q, selected_answer=selected_answer, current_index=index)
+    flat_questions = get_flat_questions(state["template"])
+    total_questions = len(flat_questions)
+    q = flat_questions[index]
+    selected_answer = state["responses"][index] if index < len(state["responses"]) else None
+
+    keyboard = build_question_keyboard(
+        question=q,
+        selected_answer=selected_answer,
+        current_index=index,
+        total_questions=total_questions
+    )
 
     question_text = f"Q{index + 1} of {len(flat_questions)}: {q['question_en']}\n\n🇷🇺 {q['question_ru']}"
 
@@ -112,21 +128,18 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if len(state["responses"]) <= index:
             state["responses"] += [None] * (index - len(state["responses"]) + 1)
 
+        # Store answer
         state["responses"][index] = answer
 
-        # Rebuild keyboard with updated selection
-        q = flat_questions[index]
-        keyboard = build_question_keyboard(q, selected_answer=answer, current_index=index)
+        total_questions = len(get_flat_questions(state["template"]))
 
-        # Edit message with selected answer and navigation hint
-        await query.edit_message_text(
-            text=(
-                f"Q{index + 1} of {len(flat_questions)}: {q['question_en']}\n\n"
-                f"🇷🇺 {q['question_ru']}\n\n"
-                f"📝 Selected: {answer}\n➡️ Press Next to continue"
-            ),
-            reply_markup=keyboard
-        )
+        # Auto-advance only if not the last question
+        if index < total_questions - 1:
+            state["current_index"] += 1
+
+        await send_next_question(query, context, user_id)
+
+
 
     elif data == "nav:next":
         state["current_index"] += 1
@@ -138,6 +151,11 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_next_question(query, context, user_id)
         else:
             await query.answer("This is the first question.", show_alert=True)
+            
+    elif data == "generate":
+        state["current_index"] += 1  # Mark as completed
+        await send_next_question(query, context, user_id)
+
 
 async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id

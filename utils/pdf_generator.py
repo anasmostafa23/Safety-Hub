@@ -1,4 +1,4 @@
-from reportlab.lib.pagesizes import landscape, A3
+from reportlab.lib.pagesizes import A3, landscape
 from reportlab.lib import colors
 from reportlab.lib.units import cm
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
@@ -8,57 +8,71 @@ import os
 
 def generate_pdf(username: str, template: dict, responses: list, site_id: str = "Unknown", output_dir: str = "exports") -> str:
     os.makedirs(output_dir, exist_ok=True)
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"audit_{username.replace(' ', '_')}_{timestamp}.pdf"
     file_path = os.path.join(output_dir, filename)
 
-    doc = SimpleDocTemplate(
-        file_path,
-        pagesize=landscape(A3),  # 🔄 Landscape A3
-        leftMargin=2 * cm, rightMargin=2 * cm,
-        topMargin=2 * cm, bottomMargin=2 * cm
-    )
-
+    doc = SimpleDocTemplate(file_path, pagesize=landscape(A3),
+                            rightMargin=2*cm, leftMargin=2*cm,
+                            topMargin=2*cm, bottomMargin=2*cm)
     styles = getSampleStyleSheet()
     elements = []
 
-    elements.append(Paragraph("<b>📋 Site Risk Assessment Report</b>", styles["Title"]))
-    elements.append(Spacer(1, 0.5 * cm))
-    elements.append(Paragraph(f"<b>Assessor:</b> Eng. {username}", styles["Normal"]))
-    elements.append(Paragraph(f"<b>Site ID:</b> {site_id}", styles["Normal"]))
-    elements.append(Spacer(1, 1 * cm))
+    # Header
+    elements.append(Paragraph("<b>📋 Site Risk Assessment Report</b>", styles['Title']))
+    elements.append(Spacer(1, 0.5*cm))
+    elements.append(Paragraph(f"<b>Assessor:</b> Eng. {username}", styles['Normal']))
+    elements.append(Paragraph(f"<b>Site ID:</b> {site_id}", styles['Normal']))
+    elements.append(Spacer(1, 0.7*cm))
 
+    # Table headers with row number
     data = [["#", "Category", "Question", "Response"]]
-    flat_questions = [
-        (cat["name"], q["question_en"]) for cat in template["categories"] for q in cat["questions"]
+    table_style = [
+        ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
+        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 12),
+        ("BOTTOMPADDING", (0, 0), (-1, 0), 8),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
     ]
 
-    for i, (category, question) in enumerate(flat_questions):
-        answer = responses[i] if i < len(responses) else "N/A"
-        data.append([str(i + 1), category, question, answer])
+    row_idx = 1  # Starts at table data row 1 (excluding header)
+    question_counter = 1  # Visible row number
 
-    table_style = TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#d9d9d9")),
-        ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
-        ('ALIGN', (0, 0), (0, -1), 'CENTER'),
-        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 12),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP')
-    ])
+    for category in template["categories"]:
+        questions = category["questions"]
+        rowspan = len(questions)
 
-    for i in range(1, len(data)):
-        answer = data[i][3]
-        if answer == "Yes":
-            table_style.add('TEXTCOLOR', (3, i), (3, i), colors.green)
-        elif answer == "No":
-            table_style.add('TEXTCOLOR', (3, i), (3, i), colors.red)
-        else:
-            table_style.add('TEXTCOLOR', (3, i), (3, i), colors.grey)
+        for i, q in enumerate(questions):
+            response_index = question_counter - 1
+            answer = responses[response_index] if response_index < len(responses) else "N/A"
 
-    table = Table(data, colWidths=[2 * cm, 6 * cm, 24 * cm, 5 * cm])  # 📏 wider columns
-    table.setStyle(table_style)
+            # Determine response color
+            text_color = (
+                colors.green if answer == "Yes"
+                else colors.red if answer == "No"
+                else colors.grey
+            )
+
+            # First question in category: include category name
+            if i == 0:
+                data.append([str(question_counter), category["name"], q["question_en"], answer])
+                table_style.append(("SPAN", (1, row_idx), (1, row_idx + rowspan - 1)))
+                table_style.append(("VALIGN", (1, row_idx), (1, row_idx + rowspan - 1), "MIDDLE"))
+            else:
+                data.append([str(question_counter), "", q["question_en"], answer])
+
+            # Apply color to response
+            table_style.append(("TEXTCOLOR", (3, row_idx), (3, row_idx), text_color))
+
+            row_idx += 1
+            question_counter += 1
+
+    # Adjust column widths (now 4 columns)
+    table = Table(data, colWidths=[1.2*cm, 5.5*cm, 19*cm, 4*cm])
+    table.setStyle(TableStyle(table_style))
     elements.append(table)
 
     doc.build(elements)
