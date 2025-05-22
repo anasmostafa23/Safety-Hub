@@ -8,3 +8,4 @@ exports/
 *.sqlite
 *.egg-info/
 *.egg   
+.env
