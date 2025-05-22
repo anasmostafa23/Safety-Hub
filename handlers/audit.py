@@ -8,6 +8,9 @@ from utils.pdf_generator import generate_pdf
 # In-memory user state
 user_states = {}
 
+def get_flat_questions(template):
+    return [q for cat in template["categories"] for q in cat["questions"]]
+
 async def start_audit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
 
@@ -16,58 +19,76 @@ async def start_audit(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "awaiting_name": True
     }
 
-    await update.message.reply_text("👷 Please enter your full name :")
+    await update.message.reply_text("👷 Please enter your full name:")
 
-def build_question_keyboard(question, answered, current_index):
+def build_question_keyboard(question, selected_answer, current_index):
     option_buttons = [
-        InlineKeyboardButton(opt, callback_data=f"answer:{opt}") for opt in question["options"]
+        InlineKeyboardButton(
+            f"{'✅ ' if opt == selected_answer else ''}{opt}",
+            callback_data=f"answer:{opt}"
+        ) for opt in question["options"]
     ]
 
     nav_buttons = []
     if current_index > 0:
         nav_buttons.append(InlineKeyboardButton("⬅️ Previous", callback_data="nav:prev"))
-    if answered:
+    if selected_answer:
         nav_buttons.append(InlineKeyboardButton("➡️ Next", callback_data="nav:next"))
 
-    keyboard = InlineKeyboardMarkup([option_buttons, nav_buttons])
-    return keyboard
+    return InlineKeyboardMarkup([
+        option_buttons,
+        nav_buttons
+    ])
 
 async def send_next_question(update, context, user_id):
     state = user_states[user_id]
     questions = state["template"]["categories"]
-    flat_questions = [q for category in questions for q in category["questions"]]
+    flat_questions = get_flat_questions(state["template"])
     index = state["current_index"]
 
     if index >= len(flat_questions):
-        username = (
-            update.effective_user.username
-            if hasattr(update, "effective_user") else update.from_user.username
-        ) or str(user_id)
-
         await context.bot.send_message(chat_id=user_id, text="✅ Audit complete! Generating PDF...")
-
+        full_name = state.get("full_name", str(user_id))
         pdf_path = generate_pdf(
-            username=state.get("full_name", str(user_id)),
+            username=full_name,
             template=state["template"],
             responses=state["responses"],
             site_id=state.get("site_id", "Unknown")
         )
-
-        await context.bot.send_document(chat_id=user_id, document=open(pdf_path, "rb"))
+        # Use context manager to safely open file
+        with open(pdf_path, "rb") as pdf_file:
+            await context.bot.send_document(chat_id=user_id, document=pdf_file)
         await context.bot.send_message(chat_id=user_id, text="Use /start to start a new audit.")
         user_states.pop(user_id, None)
         return
 
     q = flat_questions[index]
-    answer = state["responses"][index] if index < len(state["responses"]) else None
-    keyboard = build_question_keyboard(q, answered=bool(answer), current_index=index)
+    selected_answer = state["responses"][index] if index < len(state["responses"]) else None
+    keyboard = build_question_keyboard(q, selected_answer=selected_answer, current_index=index)
 
-    answer_text = f"\n📝 Current answer: {answer}" if answer else ""
-    await context.bot.send_message(
-        chat_id=user_id,
-        text=f"Q{index + 1}: {q['question_en']}\n\n🇷🇺 {q['question_ru']}{answer_text}",
-        reply_markup=keyboard
-    )
+    question_text = f"Q{index + 1} of {len(flat_questions)}: {q['question_en']}\n\n🇷🇺 {q['question_ru']}"
+
+    try:
+        if "last_message_id" in state:
+            await context.bot.edit_message_text(
+                chat_id=user_id,
+                message_id=state["last_message_id"],
+                text=question_text,
+                reply_markup=keyboard
+            )
+            return
+        else:
+            raise ValueError("No previous message to edit")
+    except Exception:
+        # Try to delete old message to avoid clutter
+        if "last_message_id" in state:
+            try:
+                await context.bot.delete_message(chat_id=user_id, message_id=state["last_message_id"])
+            except:
+                pass  # ignore if already deleted or can't delete
+
+        msg = await context.bot.send_message(chat_id=user_id, text=question_text, reply_markup=keyboard)
+        state["last_message_id"] = msg.message_id
 
 async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -82,6 +103,8 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data
     index = state["current_index"]
 
+    flat_questions = get_flat_questions(state["template"])
+
     if data.startswith("answer:"):
         answer = data.split("answer:")[1]
 
@@ -91,14 +114,17 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         state["responses"][index] = answer
 
-        # Rebuild keyboard with nav buttons
-        flat_questions = [q for cat in state["template"]["categories"] for q in cat["questions"]]
+        # Rebuild keyboard with updated selection
         q = flat_questions[index]
-        keyboard = build_question_keyboard(q, answered=True, current_index=index)
+        keyboard = build_question_keyboard(q, selected_answer=answer, current_index=index)
 
-        # Edit message instead of sending new one
+        # Edit message with selected answer and navigation hint
         await query.edit_message_text(
-            text=f"Q{index + 1}: {q['question_en']}\n\n🇷🇺 {q['question_ru']}\n\n📝 Selected: {answer}",
+            text=(
+                f"Q{index + 1} of {len(flat_questions)}: {q['question_en']}\n\n"
+                f"🇷🇺 {q['question_ru']}\n\n"
+                f"📝 Selected: {answer}\n➡️ Press Next to continue"
+            ),
             reply_markup=keyboard
         )
 
@@ -107,9 +133,11 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_next_question(query, context, user_id)
 
     elif data == "nav:prev":
-        state["current_index"] -= 1
-        await send_next_question(query, context, user_id)
-
+        if index > 0:
+            state["current_index"] -= 1
+            await send_next_question(query, context, user_id)
+        else:
+            await query.answer("This is the first question.", show_alert=True)
 
 async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
