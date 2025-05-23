@@ -4,6 +4,8 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from utils.template_loader import load_template
 from utils.pdf_generator import generate_pdf
+from datetime import datetime
+
 
 # In-memory user state
 user_states = {}
@@ -59,7 +61,8 @@ async def send_next_question(update, context, user_id):
             username=full_name,
             template=state["template"],
             responses=state["responses"],
-            site_id=state.get("site_id", "Unknown")
+            site_id=state.get("site_id", "Unknown"),
+            timestamp=state.get("timestamp")
         )
         # Use context manager to safely open file
         with open(pdf_path, "rb") as pdf_file:
@@ -153,6 +156,7 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await query.answer("This is the first question.", show_alert=True)
             
     elif data == "generate":
+        state["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         state["current_index"] += 1  # Mark as completed
         await send_next_question(query, context, user_id)
 

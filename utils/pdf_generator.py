@@ -6,10 +6,10 @@ from reportlab.lib.styles import getSampleStyleSheet
 from datetime import datetime
 import os
 
-def generate_pdf(username: str, template: dict, responses: list, site_id: str = "Unknown", output_dir: str = "exports") -> str:
+def generate_pdf(username: str, template: dict, responses: list, site_id: str = "Unknown",timestamp: str = None, output_dir: str = "exports") -> str:
     os.makedirs(output_dir, exist_ok=True)
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    if not timestamp:
+      timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"audit_{username.replace(' ', '_')}_{timestamp}.pdf"
     file_path = os.path.join(output_dir, filename)
 
@@ -24,6 +24,7 @@ def generate_pdf(username: str, template: dict, responses: list, site_id: str = 
     elements.append(Spacer(1, 0.5*cm))
     elements.append(Paragraph(f"<b>Assessor:</b> Eng. {username}", styles['Normal']))
     elements.append(Paragraph(f"<b>Site ID:</b> {site_id}", styles['Normal']))
+    elements.append(Paragraph(f"<b>Date:</b> {timestamp}", styles['Normal']))  
     elements.append(Spacer(1, 0.7*cm))
 
     # Table headers with row number
