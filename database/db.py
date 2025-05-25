@@ -1,5 +1,6 @@
 from database.models import Session, User, Audit, Response
 
+
 def upsert_user(telegram_id, full_name, site_id):
     session = Session()
     user = session.query(User).get(telegram_id)
@@ -13,9 +14,9 @@ def upsert_user(telegram_id, full_name, site_id):
     session.close()
 
 
-def create_audit(telegram_id):
+def create_audit(telegram_id, site_id):
     session = Session()
-    audit = Audit(user_id=telegram_id)
+    audit = Audit(user_id=telegram_id, site_id=site_id)  # Pass site_id here
     session.add(audit)
     session.commit()
     audit_id = audit.id

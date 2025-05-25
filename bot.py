@@ -1,6 +1,8 @@
 # safetyhub_bot/bot.py
 import os
 from dotenv import load_dotenv
+from database.models import Session , init_db # ✅ same session everywhere
+#init_db()
 
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")

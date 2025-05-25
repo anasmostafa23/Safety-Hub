@@ -31,11 +31,14 @@ def build_question_keyboard(question, selected_answer, current_index, total_ques
     if current_index > 0:
         nav_buttons.append(InlineKeyboardButton("⬅️ Previous", callback_data="nav:prev"))
 
-    if selected_answer:
-        if current_index < total_questions - 1:
+    if current_index < total_questions - 1:
+        if selected_answer:
             nav_buttons.append(InlineKeyboardButton("➡️ Next", callback_data="nav:next"))
-        else:
+    else:
+        # Always show the generate button on the last question
+        if selected_answer:
             nav_buttons.append(InlineKeyboardButton("📄 Generate Report", callback_data="generate"))
+
 
     return InlineKeyboardMarkup([
         option_buttons,
@@ -52,7 +55,7 @@ async def send_next_question(update, context, user_id):
         full_name = state.get("full_name", str(user_id))
         site_id = state.get("site_id", "Unknown")
         upsert_user(user_id, full_name, site_id)
-        audit_id = create_audit(user_id)
+        audit_id = create_audit(user_id, site_id)
         save_responses(audit_id, state["template"], state["responses"])
 
         await context.bot.send_message(chat_id=user_id, text="✅ Audit complete! Generating PDF...")
