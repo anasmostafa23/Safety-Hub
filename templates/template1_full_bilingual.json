@@ -5,28 +5,36 @@
       "name": "People",
       "questions": [
         {
+          "keyword": "competency_certified/компетентность_и_сертификация",
           "question_en": "Are all team members competent, certified and authorized to do the job?",
           "question_ru": "Все ли члены команды компетентны, сертифицированы и имеют допуск к работе?",
           "response": "",
           "options": ["Yes", "No", "N/A"]
+
         },
         {
+          "keyword": "medically_fit/медицинская_подготовка",
           "question_en": "Are all team members medically fit to do the job they are assigned to?",
           "question_ru": "Все ли члены команды медицински пригодны для выполнения своих задач?",
           "response": "",
           "options": ["Yes", "No", "N/A"]
+
         },
         {
+          "keyword": "supervisor_available/наличие_руководителя",
           "question_en": "Is a competent supervisor available on site?",
           "question_ru": "Присутствует ли на объекте компетентный руководитель?",
           "response": "",
           "options": ["Yes", "No", "N/A"]
+
         },
         {
+          "keyword": "high_risk_procedure_team/работы_повышенной_опасности",
           "question_en": "Is any high-risk activity performed by a minimum of two personnel, with at least one trained on emergency procedures?",
           "question_ru": "Работа повышенной опасности выполняется минимум двумя работниками, один из которых обучен действиям в чрезвычайных ситуациях?",
           "response": "",
           "options": ["Yes", "No", "N/A"]
+
         }
       ]
     },
@@ -34,28 +42,36 @@
       "name": "Equipment",
       "questions": [
         {
+          "keyword": "tools_inspected/проверка_инструментов",
           "question_en": "Are all tools and equipment inspected before use?",
           "question_ru": "Проведена ли проверка всех инструментов и оборудования перед использованием?",
           "response": "",
           "options": ["Yes", "No", "N/A"]
+
         },
         {
+          "keyword": "equipment_certified/сертификация_оборудования",
           "question_en": "Is all equipment certified and within its inspection date?",
           "question_ru": "Все ли оборудование сертифицировано и прошло ли оно своевременную проверку?",
           "response": "",
           "options": ["Yes", "No", "N/A"]
+
         },
         {
+          "keyword": "defective_equipment_removed/удаление_неисправного_оборудования",
           "question_en": "Are defective tools and equipment tagged and removed from service?",
           "question_ru": "Обозначено ли неисправное оборудование и удалено ли оно из эксплуатации?",
           "response": "",
           "options": ["Yes", "No", "N/A"]
+
         },
         {
+          "keyword": "ppe_available_condition/наличие_и_состояние_сиз",
           "question_en": "Is personal protective equipment (PPE) available and in good condition?",
           "question_ru": "Имеются ли средства индивидуальной защиты (СИЗ) и находятся ли они в хорошем состоянии?",
           "response": "",
           "options": ["Yes", "No", "N/A"]
+
         }
       ]
     },
@@ -63,28 +79,36 @@
       "name": "Environment",
       "questions": [
         {
+          "keyword": "emergency_exits_marked/аварийные_выходы",
           "question_en": "Are emergency exits and escape routes clearly marked and accessible?",
           "question_ru": "Четко ли обозначены и доступны ли аварийные выходы и пути эвакуации?",
           "response": "",
           "options": ["Yes", "No", "N/A"]
+
         },
         {
+          "keyword": "work_area_hazard_free/отсутствие_опасностей",
           "question_en": "Is the work area free from slip, trip, and fall hazards?",
           "question_ru": "Свободна ли рабочая зона от опасностей поскользнуться, споткнуться или упасть?",
           "response": "",
           "options": ["Yes", "No", "N/A"]
+
         },
         {
+          "keyword": "hazardous_materials_stored/хранение_опасных_материалов",
           "question_en": "Are hazardous materials properly labeled and stored?",
           "question_ru": "Правильно ли маркированы и хранятся ли опасные материалы?",
           "response": "",
           "options": ["Yes", "No", "N/A"]
+
         },
         {
+          "keyword": "adequate_lighting/освещение",
           "question_en": "Is adequate lighting provided in all work areas?",
           "question_ru": "Обеспечено ли достаточное освещение во всех рабочих зонах?",
           "response": "",
           "options": ["Yes", "No", "N/A"]
+
         }
       ]
     }

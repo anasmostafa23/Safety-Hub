@@ -36,6 +36,8 @@ def save_responses(audit_id, template, responses):
                 question_index=question_index,
                 category=cat_name,
                 question=q["question_en"],
+                question_ru=q["question_ru"],
+                keyword=q["keyword"], 
                 response=answer
             ))
             question_index += 1

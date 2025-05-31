@@ -3,3 +3,4 @@ reportlab==3.6.12
 python-dotenv
 sqlalchemy
 streamlit
+faker

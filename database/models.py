@@ -39,6 +39,8 @@ class Response(Base):
     question_index = Column(Integer)
     category = Column(String)
     question = Column(Text)
+    question_ru = Column(String, nullable=True)  # ✅ Add this
+    keyword = Column(String)  # Add this line
     response = Column(Text)
 
     audit = relationship("Audit", back_populates="responses")
