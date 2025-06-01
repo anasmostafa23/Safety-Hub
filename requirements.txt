@@ -7,3 +7,5 @@ faker
 matplotlib
 pandas
 sns
+squarify
+streamlit-aggrid
