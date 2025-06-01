@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from models import User, Audit, Response, Base
+import seaborn as sns
 import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -67,7 +68,9 @@ df = pd.DataFrame([{
     "Keyword": r.keyword,
     "Question": r.question,
     "Response": r.response,
-    "Timestamp": next(a.timestamp for a in filtered_audits if a.id == r.audit_id)
+    "Timestamp": audit.timestamp,
+    "site_id": audit.site_id,
+    "full_name": audit.user.full_name
 } for r in responses])
 
 # Show audit selection and details
@@ -88,33 +91,86 @@ st.write(f"**Timestamp:** {audit.timestamp}")
 audit_responses = df[df["Audit ID"] == selected_id].copy()
 st.dataframe(audit_responses[["Category", "Keyword", "Question", "Response"]])
 
-# Insights and charts
-st.markdown("---")
-st.subheader("Insights and Charts")
 
-# Response distribution pie chart
-response_counts = df["Response"].value_counts()
-fig1, ax1 = plt.subplots()
-ax1.pie(response_counts, labels=response_counts.index, autopct="%1.1f%%", startangle=140)
-ax1.axis("equal")
-st.pyplot(fig1)
+tab1, tab2, tab3, tab4 = st.tabs([
+    "🌍 Global Site Insights",
+    "📍 Per Site Insights",
+    "🧑‍🔧 Global Engineer Insights",
+    "👤 Individual Engineer Insights"
+])
 
-# Responses by category bar chart
-cat_counts = df.groupby(["Category", "Response"]).size().unstack(fill_value=0)
-st.bar_chart(cat_counts)
+with tab1:
+    st.header("🌍 Global Keyword Answer Frequencies")
+    
+    global_counts = df.groupby(["Keyword", "Response"]).size().unstack(fill_value=0)
+    global_percent = global_counts.div(global_counts.sum(axis=1), axis=0) * 100
 
-# Audits over time (number of audits per day)
-audit_dates = pd.Series([a.timestamp.date() for a in filtered_audits])
-audits_over_time = audit_dates.value_counts().sort_index()
-st.line_chart(audits_over_time)
+    st.subheader("Frequency")
+    st.dataframe(global_counts)
 
-# Optional: Response distribution per category stacked bar chart
-st.markdown("##### Response Distribution per Category")
-fig2, ax2 = plt.subplots(figsize=(10, 6))
-cat_counts.plot(kind='bar', stacked=True, ax=ax2)
-ax2.set_ylabel("Count")
-ax2.set_xlabel("Category")
-ax2.set_title("Response Counts by Category and Response")
-st.pyplot(fig2)
+    st.subheader("Percentage (%)")
+    st.dataframe(global_percent.round(2))
+
+
+
+with tab2:
+    st.header("📍 Site-Level Insights")
+
+    site_selected = st.selectbox("Select a Site", sorted(df["site_id"].unique()))
+    site_df = df[df["site_id"] == site_selected]
+    
+    site_counts = site_df.groupby(["Keyword", "Response"]).size().unstack(fill_value=0)
+    site_percent = site_counts.div(site_counts.sum(axis=1), axis=0) * 100
+
+    st.subheader(f"Frequencies for {site_selected}")
+    st.dataframe(site_counts)
+
+    st.subheader(f"Percentage (%) for {site_selected}")
+    st.dataframe(site_percent.round(2))
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+    site_counts.plot(kind="bar", stacked=True, ax=ax)
+    st.pyplot(fig)
+
+with tab3:
+    st.header("🧑‍🔧 Global Engineer Insights")
+
+    engineer_df = df.groupby("full_name").agg(
+        total_audits=("Audit ID", "nunique"),
+        sites_visited=("site_id", "nunique")
+    ).reset_index()
+
+    st.dataframe(engineer_df)
+
+    fig, ax = plt.subplots(figsize=(10, 4))
+    sns.barplot(data=engineer_df, x="full_name", y="total_audits", ax=ax)
+    ax.set_title("Total Audits per Engineer")
+    st.pyplot(fig)
+
+with tab4:
+    st.header("👤 Individual Engineer Keyword Performance")
+
+    engineer_selected = st.selectbox("Choose Engineer", sorted(df["full_name"].unique()))
+    engineer_data = df[df["full_name"] == engineer_selected]
+
+    st.write(f"Total audits: {engineer_data['Audit ID'].nunique()}")
+    st.write(f"Sites visited: {engineer_data['site_id'].nunique()}")
+
+    for site in engineer_data["site_id"].unique():
+        st.subheader(f"📍 Site: {site}")
+
+        site_visits = engineer_data[engineer_data["site_id"] == site]
+        site_kw = site_visits.groupby(["Keyword", "Response"]).size().unstack(fill_value=0)
+        site_kw_percent = site_kw.div(site_kw.sum(axis=1), axis=0) * 100
+
+        st.markdown("**Keyword Answer Ratio**")
+        st.dataframe(site_kw_percent.round(2))
+
+        # Compare to global for this site
+        site_global = df[df["site_id"] == site].groupby(["Keyword", "Response"]).size().unstack(fill_value=0)
+        site_global_percent = site_global.div(site_global.sum(axis=1), axis=0) * 100
+
+        st.markdown("**Compared to Global Site Averages**")
+        st.dataframe(site_global_percent.round(2))
 
 session.close()
