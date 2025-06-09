@@ -116,10 +116,9 @@ col2.metric("Unique Engineers", len(filtered_df["full_name"].unique()))
 col3.metric("Unique Sites", len(filtered_df["site_id"].unique()))
 
 # Main tabs
-tab1, tab2, tab3, tab4 , tab5 = st.tabs([
+tab1, tab2, tab3, tab4 = st.tabs([
     "🌍 Global Insights", 
     "📍 Site Insights",
-    "🧑‍🔧 Engineer Overview",
     "👤 Individual Engineer",
     "📝 Individual Audits"
 ])
@@ -188,9 +187,8 @@ with tab2:
     """, unsafe_allow_html=True)
 
 
-    site_tab1, site_tab2, site_tab3 = st.tabs([
+    site_tab1, site_tab2 = st.tabs([
         "📈 Trends & Patterns",
-        "👷 Engineer Performance",
         "⚠️ Issue Analysis"
     ])
     
@@ -212,39 +210,9 @@ with tab2:
         
        
     
-    with site_tab2:
-        # Engineer performance (from previous detail_tab2)
-        st.markdown("#### 🏆 Top Performers")
-        
-        engineer_stats = site_data.groupby('full_name').agg(
-            audit_count=('Audit ID', 'nunique'),
-            compliance_rate=('Response', lambda x: (x == 'Yes').mean() * 100)
-        ).sort_values('compliance_rate', ascending=False)
-        
-        # Show top 3 engineers
-        cols = st.columns(3)
-        for i, (eng, stats) in enumerate(engineer_stats.head(3).iterrows()):
-            cols[i].metric(
-                label=f"🥇 {eng}" if i == 0 else f"🥈 {eng}" if i == 1 else f"🥉 {eng}",
-                value=f"{stats['compliance_rate']:.1f}%",
-                delta=f"{stats['audit_count']} audits"
-            )
-        
-        # Engineer participation treemap
-        st.markdown("#### 👥 Engineer Participation")
-        engineer_counts = site_data['full_name'].value_counts()
-        plt.figure(figsize=(10, 6))
-        squarify.plot(
-            sizes=engineer_counts.values,
-            label=[f"{name}\n({count})" for name, count in engineer_counts.items()],
-            alpha=0.8,
-            text_kwargs={'fontsize':9}
-        )
-        plt.title("Audit Distribution Among Engineers")
-        plt.axis('off')
-        st.pyplot(plt.gcf())
     
-    with site_tab3:
+    
+    with site_tab2:
         # Issue analysis (from previous detail_tab3)
         st.markdown("#### 🚨 Issue Frequency")
         
@@ -257,180 +225,42 @@ with tab2:
         ax.set_title("Monthly Issue Count")
         ax.set_xlabel("")
         st.pyplot(fig)
-        
-    # Issue breakdown - Simplified single plot version
-    st.markdown("#### 🔎 Top 5 Problem Areas")
+         # Issue breakdown - Simplified single plot version
+        st.markdown("#### 🔎 Top 5 Problem Areas")
 
-    # Get top 5 issues
-    issue_keywords = site_data[site_data['Response']=='No']['Keyword'].value_counts().nlargest(5)
+        # Get top 5 issues
+        issue_keywords = site_data[site_data['Response']=='No']['Keyword'].value_counts().nlargest(5)
 
-    if not issue_keywords.empty:
-        fig, ax = plt.subplots(figsize=(10, 4))  # Adjusted for better proportions
-        
-        # Create horizontal bar plot
-        issue_keywords.sort_values().plot(
-            kind='barh', 
-            ax=ax, 
-            color='#ff6666',  # Slightly brighter red for emphasis
-            edgecolor='darkred',
-            width=0.7  # Makes bars slightly thinner
-        )
-        
-        # Add value labels on each bar
-        for i, v in enumerate(issue_keywords.sort_values()):
-            ax.text(v + 0.5, i, str(v), color='darkred', fontweight='bold')
-        
-        ax.set_title("Most Frequent Safety Issues", pad=20, fontsize=14)
-        ax.set_xlabel("Number of Occurrences", labelpad=10)
-        ax.set_ylabel("")
-        ax.spines['top'].set_visible(False)
-        ax.spines['right'].set_visible(False)
-        
-        st.pyplot(fig)
-    else:
-        st.success("🎉 No safety issues found for this site!")        
-with tab3:
-    st.header("🏗️ Site Insights")
-    
-    # Site selector with compact layout
-    if selected_site == "All":
-        site_col1, site_col2 = st.columns([3, 1])
-        with site_col1:
-            site = st.selectbox(
-                "Select Site",  # Shorter label
-                sorted(filtered_df["site_id"].unique()),
-                key="site_selector_main"
+        if not issue_keywords.empty:
+            fig, ax = plt.subplots(figsize=(10, 4))  # Adjusted for better proportions
+            
+            # Create horizontal bar plot
+            issue_keywords.sort_values().plot(
+                kind='barh', 
+                ax=ax, 
+                color='#ff6666',  # Slightly brighter red for emphasis
+                edgecolor='darkred',
+                width=0.7  # Makes bars slightly thinner
             )
-        with site_col2:
-            st.metric("Total Audits", len(filtered_df[filtered_df["site_id"] == site]["Audit ID"].unique()))
-    else:
-        site = selected_site
-    
-    site_data = filtered_df[filtered_df["site_id"] == site]
-    
-    # --- Compact Overview Metrics ---
-    st.subheader(f"📊 {site} Overview")
-    m1, m2, m3 = st.columns(3)
-    compliance_rate = (site_data['Response'] == 'Yes').mean() * 100
-    m1.metric("Compliance", f"{compliance_rate:.1f}%", 
-             delta=f"Δ{compliance_rate - global_percent['Yes'].mean():.1f}%")
-    m2.metric("Engineers", len(site_data["full_name"].unique()))
-    primary_issue = site_data[site_data['Response']=='No']['Keyword'].value_counts().index[0] if 'No' in site_data['Response'].values else 'None'
-    m3.metric("Top Issue", primary_issue[:18] + "..." if len(primary_issue) > 18 else primary_issue,
-             help=primary_issue if len(primary_issue) > 18 else None)
-    
-    # --- Performance Analysis ---
-    st.subheader("📈 Performance Analysis")
-    perf_tab, trend_tab = st.tabs(["👥 By Engineer", "📅 By Time"])
-    
-    with perf_tab:
-        engineer_stats = site_data.groupby('full_name').agg(
-            audits=('Audit ID', 'nunique'),
-            compliance=('Response', lambda x: (x == 'Yes').mean() * 100),
-            issues=('Response', lambda x: (x == 'No').sum())
-        ).sort_values('compliance', ascending=False)
-        
-        # Top/Bottom performers in one row
-        st.markdown("##### 🏆 Top/Bottom Performers")
-        top_bottom_cols = st.columns(2)
-        
-        with top_bottom_cols[0]:
-            st.markdown("**Top 3**")
-            for eng, stats in engineer_stats.head(3).iterrows():
-                with st.expander(f"{eng[:15]}..." if len(eng) > 15 else eng):
-                    st.metric("Compliance", f"{stats['compliance']:.1f}%")
-                    st.metric("Audits", stats['audits'])
-                    st.progress(stats['compliance']/100)
-        
-        with top_bottom_cols[1]:
-            st.markdown("**Bottom 3**")
-            for eng, stats in engineer_stats.tail(3).iterrows():
-                with st.expander(f"{eng[:15]}..." if len(eng) > 15 else eng):
-                    st.metric("Compliance", f"{stats['compliance']:.1f}%", 
-                            delta=f"{stats['issues']} issues", delta_color="inverse")
-                    st.metric("Audits", stats['audits'])
-                    st.progress(stats['compliance']/100)
-        
-        # Distribution chart
-        st.markdown("##### 📊 Compliance Distribution")
-        fig, ax = plt.subplots(figsize=(10, 3))  # More compact height
-        sns.histplot(engineer_stats['compliance'], bins=10, kde=True, ax=ax)
-        ax.axvline(compliance_rate, color='r', linestyle='--', linewidth=1)
-        ax.set_xlabel("Compliance %")
-        st.pyplot(fig)
-    
-    with trend_tab:
-        # Monthly trends in compact form
-        st.markdown("##### 📆 Monthly Trends")
-        monthly_data = site_data.groupby(site_data['Timestamp'].dt.to_period('M')).agg(
-            compliance=('Response', lambda x: (x == 'Yes').mean() * 100),
-            issues=('Response', lambda x: (x == 'No').sum())
-        )
-        
-        fig, ax1 = plt.subplots(figsize=(10, 3))
-        ax2 = ax1.twinx()
-        
-        ax1.plot(monthly_data.index.astype(str), monthly_data['compliance'], 
-                marker='o', color='blue', label='Compliance')
-        ax2.bar(monthly_data.index.astype(str), monthly_data['issues'], 
-               alpha=0.3, color='red', label='Issues')
-        
-        ax1.set_ylabel("Compliance %", color='blue')
-        ax2.set_ylabel("Issues", color='red')
-        ax1.legend(loc='upper left')
-        ax2.legend(loc='upper right')
-        st.pyplot(fig)
-    
-    # --- Issue Analysis ---
-    st.subheader("⚠️ Top Issues Requiring Attention")
-    
-    # Top problematic keywords - WITH ERROR HANDLING
-    issue_keywords = site_data[site_data['Response']=='No']['Keyword'].value_counts()
-    
-    if not issue_keywords.empty:
-        cols = st.columns(min(5, len(issue_keywords)))  # Adjust columns based on available issues
-        for i, (kw, count) in enumerate(issue_keywords.head(5).items()):
-            with cols[i]:
-                failure_rate = (site_data[site_data['Keyword']==kw]['Response']=='No').mean()*100
-                st.metric(
-                    label=f"**{kw[:18]}...**" if len(kw) > 18 else f"**{kw}**",
-                    value=f"{count} cases",
-                    delta=f"{failure_rate:.1f}% fail rate",
-                    delta_color="inverse",
-                    help=kw if len(kw) > 18 else None
-                )
-    else:
-        st.success("No compliance issues found for this site!")
+            
+            # Add value labels on each bar
+            for i, v in enumerate(issue_keywords.sort_values()):
+                ax.text(v + 0.5, i, str(v), color='darkred', fontweight='bold')
+            
+            ax.set_title("Most Frequent Safety Issues", pad=20, fontsize=14)
+            ax.set_xlabel("Number of Occurrences", labelpad=10)
+            ax.set_ylabel("")
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+            
+            st.pyplot(fig)
+        else:
+            st.success("🎉 No safety issues found for this site!")     
+            
+      
 
-    # Issue trend by category - WITH ERROR HANDLING
-    st.markdown("#### 🔄 Issue Trend by Category")
-    category_issues = site_data[site_data['Response']=='No'].groupby([
-        site_data['Timestamp'].dt.to_period('M'),
-        'Category'
-    ]).size().unstack()
     
-    if not category_issues.empty:
-        fig, ax = plt.subplots(figsize=(10, 4))
-        category_issues.plot(kind='line', marker='o', ax=ax)
-        ax.set_title("Monthly Issues by Category")
-        ax.set_ylabel("Number of Issues")
-        st.pyplot(fig)
-    else:
-        st.info("No issues available for category trend analysis")
-    
-    # Category trends
-    st.markdown("##### 🔄 By Category")
-    category_trends = site_data[site_data['Response']=='No'].groupby([
-        site_data['Timestamp'].dt.to_period('M'),
-        'Category'
-    ]).size().unstack()
-    
-    fig, ax = plt.subplots(figsize=(10, 3))
-    category_trends.plot(kind='line', ax=ax, marker='o', markersize=4)
-    ax.set_ylabel("Issues")
-    st.pyplot(fig)
-    
-with tab4:
+with tab3:
     st.header("👤 Individual Engineer Insights")
     
     if selected_name == "All":
@@ -627,7 +457,7 @@ with tab4:
         ax.set_ylabel("Percentage")
         st.pyplot(fig)
 
-with tab5:
+with tab4:
     st.header("📝 Audit Inspector")
     
     # Fetch filtered audits based on current filters
