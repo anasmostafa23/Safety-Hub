@@ -26,7 +26,7 @@ class Audit(Base):
     __tablename__ = "audits"
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.telegram_id"))
-    site_id = Column(String)  # ✅ Add this line
+    site_id = Column(String)  
     timestamp = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="audits")
@@ -39,8 +39,8 @@ class Response(Base):
     question_index = Column(Integer)
     category = Column(String)
     question = Column(Text)
-    question_ru = Column(String, nullable=True)  # ✅ Add this
-    keyword = Column(String)  # Add this line
+    question_ru = Column(String, nullable=True)  
+    keyword = Column(String)  
     response = Column(Text)
 
     audit = relationship("Audit", back_populates="responses")

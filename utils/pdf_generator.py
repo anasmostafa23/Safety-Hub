@@ -21,8 +21,8 @@ pdfmetrics.registerFont(TTFont("DejaVuSans", FONT_PATH))
 def generate_pdf(username: str, template: dict, responses: list, site_id: str = "Unknown", timestamp: str = None, output_dir: str = "exports") -> str:
     os.makedirs(output_dir, exist_ok=True)
     if not timestamp:
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"audit_{username.replace(' ', '_')}_{timestamp}.pdf"
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    filename = f"audit_{username.replace(' ', '_')}_{site_id}_{timestamp}.pdf"
     file_path = os.path.join(output_dir, filename)
 
     doc = SimpleDocTemplate(file_path, pagesize=landscape(A3),
@@ -44,7 +44,7 @@ def generate_pdf(username: str, template: dict, responses: list, site_id: str = 
     elements = []
 
     # Header
-    elements.append(Paragraph("📋 Site Risk Assessment Report", title_style))
+    elements.append(Paragraph("Site Risk Assessment Report", title_style))
     elements.append(Spacer(1, 0.5*cm))
     elements.append(Paragraph(f"<b>Assessor:</b> Eng. {username}", base_styles['Cyrillic']))
     elements.append(Paragraph(f"<b>Site ID:</b> {site_id}", base_styles['Cyrillic']))

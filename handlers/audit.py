@@ -82,7 +82,7 @@ async def send_next_question(update, context, user_id):
         total_questions=total_questions
     )
 
-    question_text = f"Q{index + 1} of {total_questions}: {q['question_en']}\n\n🇷🇺 {q['question_ru']}"
+    question_text = f"Q{index + 1} of {total_questions}: {q['question_en']}\n\n {q['question_ru']}"
 
     try:
         if "last_message_id" in state:
