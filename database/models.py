@@ -7,7 +7,6 @@ import os
 
 Base = declarative_base()
 
-# ✅ Use consistent, absolute path
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 db_path = os.path.join(BASE_DIR, "safetyhub.db")
 engine = create_engine(f"sqlite:///{db_path}")

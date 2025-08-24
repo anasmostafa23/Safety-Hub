@@ -37,7 +37,7 @@ def build_question_keyboard(question, selected_answer, current_index, total_ques
     else:
         # Always show the generate button on the last question
         if selected_answer:
-            nav_buttons.append(InlineKeyboardButton("📄 Generate Report", callback_data="generate"))
+            nav_buttons.append(InlineKeyboardButton("Generate Report", callback_data="generate"))
 
 
     return InlineKeyboardMarkup([
