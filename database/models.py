@@ -25,11 +25,12 @@ class Audit(Base):
     __tablename__ = "audits"
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.telegram_id"))
-    site_id = Column(String)  
+    site_id = Column(String)
+    title = Column(String, nullable=True)  # ✅ NEW COLUMN
     timestamp = Column(DateTime, default=datetime.utcnow)
-
     user = relationship("User", back_populates="audits")
     responses = relationship("Response", back_populates="audit")
+
 
 class Response(Base):
     __tablename__ = "responses"

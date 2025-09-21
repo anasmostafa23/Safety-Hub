@@ -10,3 +10,4 @@ sns
 squarify
 streamlit-aggrid
 pdfplumber
+openai
