@@ -10,3 +10,4 @@ exports/
 *.egg   
 .env
 Untitled.java
+uploads/
