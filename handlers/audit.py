@@ -3,13 +3,24 @@ from telegram.ext import ContextTypes
 from utils.template_loader import load_template
 from utils.pdf_generator import generate_pdf
 from database.db import upsert_user, create_audit, save_responses
-from database.models import Session , init_db
+from database.models import Session , init_db , Audit
+import json
 
 
 
 
 # In-memory user state
 user_states = {}
+
+
+def get_active_audit_template():
+    session = Session()
+    audit = session.query(Audit).filter_by(is_active=True).first()
+    session.close()
+    if not audit:
+        return None
+    with open(audit.template_path, "r", encoding="utf-8") as f:
+        return json.load(f)
 
 def get_flat_questions(template):
     return [q for cat in template["categories"] for q in cat["questions"]]
@@ -161,7 +172,10 @@ async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state["site_id"] = message
         state["awaiting_site_id"] = False
 
-        template = load_template()
+        template = get_active_audit_template()
+        if not template:
+            await update.message.reply_text("⚠️ No active audit available. Please ask an admin to activate one.")
+            return
         state.update({
             "template": template,
             "current_index": 0,

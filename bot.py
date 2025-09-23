@@ -26,6 +26,8 @@ from handlers.admin import upload_audit, handle_document
 
 from utils.utils import my_id
 
+from handlers.admin import upload_audit, handle_document, handle_audit_title
+
 
 
 
@@ -37,6 +39,9 @@ def main():
     
     app.add_handler(CommandHandler("myid", my_id))
 
+    app.add_handler(CommandHandler("upload_audit", upload_audit))
+    app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_audit_title))
 
     # Callback for inline buttons
     app.add_handler(CallbackQueryHandler(button_click))
@@ -44,8 +49,6 @@ def main():
     # Fallback for text inputs (if you later support open-ended responses)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_response))
     
-    app.add_handler(CommandHandler("upload_audit", upload_audit))
-    app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
 
     print("Bot is running...")
     app.run_polling()
