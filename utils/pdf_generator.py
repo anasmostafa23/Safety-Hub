@@ -9,12 +9,31 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from datetime import datetime
 import os
+import asyncio
+import concurrent.futures
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Register a Unicode font that supports Cyrillic (DejaVuSans is commonly used)
 FONT_PATH = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 
 if not os.path.exists(FONT_PATH):
-    raise FileNotFoundError("DejaVuSans.ttf not found. Please add it to a 'fonts' folder.")
+    # Try alternative font locations
+    alternative_paths = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/TTF/DejaVuSans.ttf",
+        "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+        "fonts/DejaVuSans.ttf",
+        "DejaVuSans.ttf"
+    ]
+
+    for path in alternative_paths:
+        if os.path.exists(path):
+            FONT_PATH = path
+            break
+    else:
+        logger.warning("DejaVuSans.ttf not found. PDF generation may have font issues.")
 
 pdfmetrics.registerFont(TTFont("DejaVuSans", FONT_PATH))
 
@@ -98,3 +117,28 @@ def generate_pdf(username: str, template: dict, responses: list, site_id: str = 
 
     doc.build(elements)
     return file_path
+
+async def generate_pdf_async(username: str, template: dict, responses: list, site_id: str = "Unknown", timestamp: str = None, output_dir: str = "exports") -> str:
+    """
+    Async wrapper for PDF generation to prevent blocking the main thread
+    """
+    loop = asyncio.get_event_loop()
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        # Run the PDF generation in a separate thread
+        pdf_path = await loop.run_in_executor(
+            executor,
+            generate_pdf,
+            username,
+            template,
+            responses,
+            site_id,
+            timestamp,
+            output_dir
+        )
+        return pdf_path
+
+def generate_pdf_sync(*args, **kwargs) -> str:
+    """
+    Synchronous PDF generation for backward compatibility
+    """
+    return generate_pdf(*args, **kwargs)

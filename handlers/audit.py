@@ -1,25 +1,15 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from utils.pdf_generator import generate_pdf
-from database.db import upsert_user, create_audit, save_responses
+from utils.pdf_generator import generate_pdf_async
+from database.db import upsert_user, create_audit, save_responses, get_cached_active_audit_template
 from database.models import Session , init_db , Audit
 import json
+import logging
 
-
-
+logger = logging.getLogger(__name__)
 
 # In-memory user state
 user_states = {}
-
-
-def get_active_audit_template():
-    session = Session()
-    audit = session.query(Audit).filter_by(is_active=True).first()
-    session.close()
-    if not audit:
-        return None
-    with open(audit.template_path, "r", encoding="utf-8") as f:
-        return json.load(f)
 
 def get_flat_questions(template):
     return [q for cat in template["categories"] for q in cat["questions"]]
@@ -69,12 +59,16 @@ async def send_next_question(update, context, user_id):
         save_responses(audit_id, state["template"], state["responses"])
 
         await context.bot.send_message(chat_id=user_id, text="✅ Audit complete! Generating PDF...")
-        pdf_path = generate_pdf(
+
+        # Generate PDF asynchronously to prevent blocking
+        pdf_path = await generate_pdf_async(
             username=full_name,
             template=state["template"],
             responses=state["responses"],
             site_id=site_id
         )
+
+        # Send the generated PDF
         with open(pdf_path, "rb") as pdf_file:
             await context.bot.send_document(chat_id=user_id, document=pdf_file)
         await context.bot.send_message(chat_id=user_id, text="Use /start to start a new audit.")
@@ -171,7 +165,7 @@ async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state["site_id"] = message
         state["awaiting_site_id"] = False
 
-        template = get_active_audit_template()
+        template = get_cached_active_audit_template()
         if not template:
             await update.message.reply_text("⚠️ No active audit available. Please ask an admin to activate one.")
             return

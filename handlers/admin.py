@@ -4,7 +4,7 @@ import json
 import uuid
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from utils.audit_parser import parse_audit_pdf_openai
+from utils.audit_parser import parse_audit_pdf_openai_optimized
 from database.models import Audit
 from database.db import Session as SessionLocal
 
@@ -36,7 +36,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await file.download_to_drive(file_path)
 
     await update.message.reply_text("🔄 Processing file with OpenAI... please wait.")
-    checklist = parse_audit_pdf_openai(file_path)
+    checklist = parse_audit_pdf_openai_optimized(file_path)
 
     if not checklist:
         await update.message.reply_text("❌ Failed to parse audit file. Try again.")
