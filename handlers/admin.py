@@ -90,3 +90,45 @@ async def handle_audit_title(update: Update, context: ContextTypes.DEFAULT_TYPE)
         f"✅ Audit saved: {audit.title}\nActivate now?",
         reply_markup=reply_markup
     )
+
+
+async def handle_audit_activation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle audit activation callback"""
+    query = update.callback_query
+    await query.answer()
+
+    user_id = query.from_user.id
+    if not is_admin(user_id):
+        await query.edit_message_text("⛔ You are not authorized to activate audits.")
+        return
+
+    # Parse audit ID from callback data
+    callback_data = query.data
+    if not callback_data.startswith("activate_audit_"):
+        return
+
+    try:
+        audit_id = int(callback_data.split("activate_audit_")[1])
+    except (ValueError, IndexError):
+        await query.edit_message_text("❌ Invalid audit ID.")
+        return
+
+    # Update audit status in database
+    session = SessionLocal()
+    audit = session.query(Audit).filter_by(id=audit_id).first()
+
+    if not audit:
+        session.close()
+        await query.edit_message_text("❌ Audit not found.")
+        return
+
+    # Deactivate all other audits first
+    session.query(Audit).update({"is_active": False})
+    audit.is_active = True
+    session.commit()
+    session.close()
+
+    await query.edit_message_text(
+        f"✅ Audit '{audit.title}' has been activated!\n"
+        "Users can now start this audit with /start"
+    )

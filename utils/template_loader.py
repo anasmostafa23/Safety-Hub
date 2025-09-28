@@ -3,14 +3,8 @@
 import json
 import os
 
-TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "../templates/template1_full_bilingual.json")
-
-def load_template():
-    
-    with open(TEMPLATE_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-def load_keywords_from_template(json_path='template1_full_bilingual.json'):
+def load_keywords_from_template(json_path):
+    """Load keywords from a template file path"""
     with open(json_path, 'r', encoding='utf-8') as f:
         data = json.load(f)
 

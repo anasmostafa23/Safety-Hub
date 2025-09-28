@@ -1,6 +1,5 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from utils.template_loader import load_template
 from utils.pdf_generator import generate_pdf
 from database.db import upsert_user, create_audit, save_responses
 from database.models import Session , init_db , Audit
