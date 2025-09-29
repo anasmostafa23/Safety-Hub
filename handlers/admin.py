@@ -1,12 +1,11 @@
 # handlers/admin.py
 import os
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ContextTypes
+import json
+from telegram import Update
+from telegram.ext import ContextTypes, MessageHandler, filters
 from utils.audit_parser import parse_audit_pdf_openai
-from database.models import Audit
-from database.db import Session as SessionLocal
 
-ADMIN_IDS = [6015506522]  # <-- replace with real admin Telegram IDs
+ADMIN_IDS = [6015506522]  # replace with real admin Telegram IDs
 
 def is_admin(user_id):
     return user_id in ADMIN_IDS
@@ -36,23 +35,24 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Failed to process audit. Try again.")
         return
 
-    # Save to DB
-    session = SessionLocal()
-    audit = Audit(
-        title=checklist.get("template_name", "Untitled Audit"),
-        file_path=file_path,
-        parsed_json=checklist,
-        created_by=str(user_id),
-        is_active=False
-    )
-    session.add(audit)
-    session.commit()
-    session.close()
+    # ✅ Store checklist temporarily and ask for a name
+    context.user_data["pending_checklist"] = checklist
+    await update.message.reply_text("✏️ Please enter a name for this audit template:")
 
-    keyboard = [[
-        InlineKeyboardButton("✅ Activate", callback_data=f"activate_audit_{audit.id}"),
-        InlineKeyboardButton("❌ Keep Inactive", callback_data="noop")
-    ]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+async def handle_template_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handles the admin's reply with the template name."""
+    if "pending_checklist" not in context.user_data:
+        await update.message.reply_text("⚠️ No checklist waiting to be named. Please upload a file first.")
+        return
 
-    await update.message.reply_text(f"✅ Audit saved: {audit.title}\nActivate now?", reply_markup=reply_markup)
+    checklist = context.user_data.pop("pending_checklist")
+    user_input_name = update.message.text.strip()
+    safe_title = user_input_name.replace(" ", "_")
+
+    # ✅ Save to templates folder
+    os.makedirs("templates", exist_ok=True)
+    json_path = os.path.join("templates", f"{safe_title}.json")
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(checklist, f, ensure_ascii=False, indent=2)
+
+    await update.message.reply_text(f"✅ Template saved as *{safe_title}*.\nYou can activate it later.", parse_mode="Markdown")

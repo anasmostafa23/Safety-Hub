@@ -2,47 +2,52 @@
 import os
 import json
 import re
-import datetime
+import logging
 import pdfplumber
-from pdf2image import convert_from_path
-import pytesseract
 from openai import OpenAI
-from telegram import Update
-from telegram.ext import ContextTypes
 from dotenv import load_dotenv
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
-
 def extract_text_from_pdf(pdf_path: str):
+    """Extracts text from a PDF using pdfplumber only (no OCR)."""
     extracted_text = ""
+    logger.info(f"🔍 Starting PDF text extraction: {pdf_path}")
+
     try:
-        images = convert_from_path(pdf_path)
-        for img in images:
-            text = pytesseract.image_to_string(img)
-            if text.strip():
-                extracted_text += text + "\n"
+        with pdfplumber.open(pdf_path) as pdf:
+            logger.info(f"📄 Found {len(pdf.pages)} pages in PDF")
+            for i, page in enumerate(pdf.pages, start=1):
+                text = page.extract_text()
+                if text:
+                    logger.info(f"✅ Page {i}: extracted {len(text)} characters")
+                    extracted_text += text + "\n"
+                else:
+                    logger.warning(f"⚠️ Page {i}: no text found")
     except Exception as e:
-        print(f"OCR failed: {e}")
+        logger.error(f"❌ pdfplumber failed: {e}")
+        return ""
 
-    if not extracted_text.strip():
-        try:
-            with pdfplumber.open(pdf_path) as pdf:
-                for page in pdf.pages:
-                    text = page.extract_text()
-                    if text:
-                        extracted_text += text + "\n"
-        except Exception as e:
-            print(f"pdfplumber failed: {e}")
-
+    # Clean text
     extracted_text = re.sub(r'\s+', ' ', extracted_text)
     extracted_text = re.sub(r'[^\w\s.?]', ' ', extracted_text)
+
+    logger.info(f"📊 Total text length: {len(extracted_text)} characters")
+    if len(extracted_text) < 20:
+        logger.warning("⚠️ Very little text was extracted. The PDF may be scanned (image-only).")
+
     return extracted_text.strip()
 
+
 def process_text_with_openai(full_text: str):
+    """Send extracted text to OpenAI for checklist generation."""
+    logger.info(f"🤖 Sending {len(full_text)} characters to OpenAI...")
     prompt = f"""
 Convert the following safety guidelines text into a structured JSON safety audit checklist.
 
@@ -83,14 +88,16 @@ OUTPUT REQUIREMENTS:
             response_format={"type": "json_object"}
         )
         result = response.choices[0].message.content
+        logger.info(f"✅ Received OpenAI response ({len(result)} characters)")
         return json.loads(result)
     except Exception as e:
-        print(f"OpenAI processing failed: {e}")
+        logger.error(f"❌ OpenAI processing failed: {e}")
         return None
+
 
 def parse_audit_pdf_openai(pdf_path: str):
     full_text = extract_text_from_pdf(pdf_path)
     if not full_text:
+        logger.error("❌ No text could be extracted from PDF")
         return None
-    checklist = process_text_with_openai(full_text)
-    return checklist
+    return process_text_with_openai(full_text)
