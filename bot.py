@@ -13,7 +13,10 @@ from telegram.ext import (
 )
 
 from handlers.audit import start_audit, handle_response, button_click
-from handlers.admin import upload_audit, handle_document, handle_template_name
+from handlers.admin import (
+    upload_audit, handle_document, handle_template_name,
+    list_templates, select_template, current_template
+)
 from utils.utils import my_id
 
 # Configure logging
@@ -30,17 +33,24 @@ def main():
     app.add_handler(CommandHandler("myid", my_id))
     app.add_handler(CommandHandler("upload_audit", upload_audit))
 
+    # Admin template management commands
+    app.add_handler(CommandHandler("list_templates", list_templates))
+    app.add_handler(CommandHandler("select_template", select_template))
+    app.add_handler(CommandHandler("current_template", current_template))
+
     # Callbacks
     app.add_handler(CallbackQueryHandler(button_click))
 
     # Document upload (admin)
     app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
+    
+     # Fallback for other user text (audit answers)
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_response))
 
     # ✅ NEW: Admin template name input (must be above handle_response)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_template_name))
 
-    # Fallback for other user text (audit answers)
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_response))
+   
 
     print("Bot is running...")
     app.run_polling()

@@ -2,13 +2,19 @@
 
 import json
 import os
-
-TEMPLATE_PATH = os.path.join(os.path.dirname(__file__), "../templates/template1_full_bilingual.json")
+from .template_manager import get_active_template, initialize_default_template
 
 def load_template():
-    
-    with open(TEMPLATE_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+    """Load the currently active template."""
+
+    # Initialize default template if none is active
+    initialize_default_template()
+
+    template = get_active_template()
+    if template is None:
+        raise FileNotFoundError("No active template found. Please contact an administrator.")
+
+    return template
 
 def load_keywords_from_template(json_path='template1_full_bilingual.json'):
     with open(json_path, 'r', encoding='utf-8') as f:

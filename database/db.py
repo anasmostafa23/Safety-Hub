@@ -14,9 +14,9 @@ def upsert_user(telegram_id, full_name, site_id):
     session.close()
 
 
-def create_audit(telegram_id, site_id):
+def create_audit(telegram_id, site_id, title=None):
     session = Session()
-    audit = Audit(user_id=telegram_id, site_id=site_id)  # Pass site_id here
+    audit = Audit(user_id=telegram_id, site_id=site_id,title = title)  # Pass site_id here
     session.add(audit)
     session.commit()
     audit_id = audit.id

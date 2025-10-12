@@ -92,7 +92,7 @@ def generate_pdf(username: str, template: dict, responses: list, site_id: str = 
             row_idx += 1
             question_counter += 1
 
-    table = Table(data, colWidths=[1.2*cm, 4*cm, 25*cm, 4*cm])
+    table = Table(data, colWidths=[1.2*cm, 8*cm, 25*cm, 4*cm])
     table.setStyle(TableStyle(table_style))
     elements.append(table)
 
