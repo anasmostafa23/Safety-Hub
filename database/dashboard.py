@@ -290,11 +290,17 @@ with tab3:
         st.markdown("**Comparison Against Peer Groups**")
         
         # Create peer groups based on activity level
-        engineer_metrics['peer_group'] = pd.qcut(
-            engineer_metrics['total_audits'],
-            q=4,
-            labels=['Low Activity', 'Moderate Activity', 'High Activity', 'Top Performers']
+        if engineer_metrics['total_audits'].nunique() > 1:
+                engineer_metrics['peer_group'] = pd.qcut(
+                engineer_metrics['total_audits'],
+                q=4,
+                labels=['Low Activity', 'Moderate Activity', 'High Activity', 'Top Performers'],
+                duplicates='drop'  # <-- also ensures unique bin edges
         )
+        else:
+                # fallback: everyone in the same group
+                engineer_metrics['peer_group'] = 'Uniform Activity'
+
         
         # Get current engineer's group
         current_group = engineer_metrics.loc[
