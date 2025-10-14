@@ -206,15 +206,18 @@ with tab2:
     
     with site_tab2:
         st.markdown("#### 🚨 Issue Frequency")
-        
+
         monthly_issues = site_data[site_data['Response']=='No'].groupby(
             site_data['Timestamp'].dt.to_period('M')).size()
-        
-        fig, ax = plt.subplots(figsize=(10, 4))
-        monthly_issues.plot(kind='bar', ax=ax, color='orange')
-        ax.set_title("Monthly Issue Count")
-        ax.set_xlabel("")
-        st.pyplot(fig)
+
+        if not monthly_issues.empty:
+            fig, ax = plt.subplots(figsize=(10, 4))
+            monthly_issues.plot(kind='bar', ax=ax, color='orange')
+            ax.set_title("Monthly Issue Count")
+            ax.set_xlabel("")
+            st.pyplot(fig)
+        else:
+            st.info("🎉 No safety issues found for this site in the selected time period!")
         
         st.markdown("#### 🔎 Top 5 Problem Areas")
 
@@ -269,16 +272,66 @@ with tab3:
     
     with comp_tab1:
         st.markdown("**Comparison Against Peer Groups**")
-        
-        if engineer_metrics['total_audits'].nunique() > 1:
-                engineer_metrics['peer_group'] = pd.qcut(
-                engineer_metrics['total_audits'],
-                q=4,
-                labels=['Low Activity', 'Moderate Activity', 'High Activity', 'Top Performers'],
-                duplicates='drop'
-        )
+
+        # Defensive copy
+        em = engineer_metrics.copy()
+
+        # Handle grouping safely
+        if em["total_audits"].nunique() <= 1 or len(em) < 3:
+            em["peer_group"] = "Uniform Activity"
         else:
-                engineer_metrics['peer_group'] = 'Uniform Activity'
+            # Try quantile-based split, fallback to percentile binning
+            try:
+                n_unique = em["total_audits"].nunique()
+                n_quantiles = min(4, n_unique)
+
+                label_map = {
+                    2: ["Low", "High"],
+                    3: ["Low", "Medium", "High"],
+                    4: ["Low", "Moderate", "High", "Top"],
+                }
+                labels = label_map.get(n_quantiles, [f"Group {i+1}" for i in range(n_quantiles)])
+
+                # Compute actual bins
+                cuts, bins = pd.qcut(
+                    em["total_audits"],
+                    q=n_quantiles,
+                    retbins=True,
+                    duplicates="drop",
+                )
+
+                # Ensure label length matches
+                valid_labels = labels[: len(bins) - 1]
+                em["peer_group"] = pd.cut(
+                    em["total_audits"],
+                    bins=bins,
+                    labels=valid_labels,
+                    include_lowest=True,
+                )
+            except ValueError:
+                # Fallback: use percentile binning
+                em["peer_group"] = pd.cut(
+                    em["total_audits"],
+                    bins=np.linspace(
+                        em["total_audits"].min(),
+                        em["total_audits"].max(),
+                        num=4
+                    ),
+                    labels=["Low", "Medium", "High"],
+                    include_lowest=True,
+                )
+            except Exception as e:
+                st.warning(f"⚠️ Fallback applied due to grouping issue: {e}")
+                em["peer_group"] = "Uniform Activity"
+
+        engineer_metrics["peer_group"] = em["peer_group"]
+
+        current_group = em.loc[
+            em["full_name"] == engineer, "peer_group"
+        ].values[0]
+
+        st.write(f"{engineer} is in the **{current_group}** peer group (based on audit volume)")
+
 
         current_group = engineer_metrics.loc[
             engineer_metrics['full_name'] == engineer, 'peer_group'].values[0]
