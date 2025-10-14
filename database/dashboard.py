@@ -41,8 +41,9 @@ def load_all_responses():
                 "Response": r.response,
                 "Timestamp": audit.timestamp,
                 "site_id": audit.site_id,
-                "full_name": audit.user.full_name
-                
+                "full_name": audit.user.full_name,
+                "title": audit.title
+
             })
     return pd.DataFrame(responses)
 
@@ -89,6 +90,7 @@ engineer_metrics, engineer_site_visits, engineer_kw, engineer_kw_percent = calcu
 
 # Filtering sidebar
 st.sidebar.header("🔎 Filter Data")
+selected_template = st.sidebar.selectbox("Filter by Audit Template", ["All"] + sorted(df["title"].dropna().unique().tolist()))
 selected_site = st.sidebar.selectbox("Filter by Site ID", ["All"] + sorted(df["site_id"].unique().tolist()))
 selected_name = st.sidebar.selectbox("Filter by Engineer", ["All"] + sorted(df["full_name"].unique().tolist()))
 start_date = st.sidebar.date_input("Start Date", value=df["Timestamp"].min())
@@ -96,11 +98,13 @@ end_date = st.sidebar.date_input("End Date", value=df["Timestamp"].max())
 
 # Apply filters
 filtered_df = df.copy()
+if selected_template != "All":
+    filtered_df = filtered_df[filtered_df["title"] == selected_template]
 if selected_site != "All":
     filtered_df = filtered_df[filtered_df["site_id"] == selected_site]
 if selected_name != "All":
     filtered_df = filtered_df[filtered_df["full_name"] == selected_name]
-filtered_df = filtered_df[(filtered_df["Timestamp"].dt.date >= start_date) & 
+filtered_df = filtered_df[(filtered_df["Timestamp"].dt.date >= start_date) &
                           (filtered_df["Timestamp"].dt.date <= end_date)]
 
 if filtered_df.empty:
@@ -470,7 +474,9 @@ with tab4:
     filtered_audits = session.query(Audit).join(User).filter(
         Audit.timestamp.between(start_date, end_date + timedelta(days=1))
     )
-    
+
+    if selected_template != "All":
+        filtered_audits = filtered_audits.filter(Audit.title == selected_template)
     if selected_site != "All":
         filtered_audits = filtered_audits.filter(Audit.site_id == selected_site)
     if selected_name != "All":
