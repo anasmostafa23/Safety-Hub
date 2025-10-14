@@ -11,6 +11,7 @@ import squarify
 from math import pi
 from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 from datetime import timedelta
+import time
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 db_path = os.path.join(BASE_DIR, "safetyhub.db")
@@ -50,6 +51,23 @@ df = load_all_responses()
 
 # ===== FILTERING SIDEBAR - MOVED TO TOP =====
 st.sidebar.header("🔎 Filter Data")
+
+# Auto-refresh settings
+st.sidebar.header("🔄 Auto-Refresh Settings")
+refresh_interval = st.sidebar.slider(
+    "Refresh Interval (seconds)",
+    min_value=30,
+    max_value=300,
+    value=60,
+    step=30,
+    help="How often to refresh the dashboard data"
+)
+
+enable_auto_refresh = st.sidebar.checkbox(
+    "Enable Auto-Refresh",
+    value=True,
+    help="Automatically refresh dashboard data at the specified interval"
+)
 
 # Template filter is FIRST and PRIMARY
 selected_template = st.sidebar.selectbox(
@@ -556,5 +574,14 @@ with tab4:
         f"audit_{selected_id}_responses.csv",
         "text/csv"
     )
-    
+
+# ===== AUTO-REFRESH MECHANISM =====
+if enable_auto_refresh:
+    st.info(f"🔄 Dashboard will refresh automatically every {refresh_interval} seconds...")
+    # Add a small delay to show the refresh message
+    time.sleep(2)
+    st.rerun()
+else:
+    st.info("🔄 Auto-refresh is disabled. Enable it in the sidebar to see live updates.")
+
 session.close()
