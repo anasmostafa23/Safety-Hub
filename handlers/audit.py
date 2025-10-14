@@ -6,8 +6,6 @@ from database.db import upsert_user, create_audit, save_responses
 from database.models import Session , init_db
 
 
-
-
 # In-memory user state
 user_states = {}
 
@@ -54,8 +52,16 @@ async def send_next_question(update, context, user_id):
         # Save responses to DB
         full_name = state.get("full_name", str(user_id))
         site_id = state.get("site_id", "Unknown")
+        template_name = state.get("template_name", "Unknown Template")  # ✅ Get template name
+        
         upsert_user(user_id, full_name, site_id)
-        audit_id = create_audit(user_id, site_id)
+        
+        # ✅ Pass template title when creating audit
+        audit_id = create_audit(
+            telegram_id=user_id, 
+            site_id=site_id,
+            title=template_name  # ✅ KEY FIX: Store template name
+        )
         save_responses(audit_id, state["template"], state["responses"])
 
         await context.bot.send_message(chat_id=user_id, text="✅ Audit complete! Generating PDF...")
@@ -161,15 +167,19 @@ async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state["site_id"] = message
         state["awaiting_site_id"] = False
 
+        # ✅ Load template and extract template name
         template = load_template()
+        template_name = template.get("template_name", "Unknown Template")  # ✅ KEY FIX
+        
         state.update({
             "template": template,
+            "template_name": template_name,  # ✅ Store template name in state
             "current_index": 0,
             "responses": []
         })
 
         await update.message.reply_text(
-            f"✅ Thanks, {state['full_name']}!\n📄 Starting audit for Site ID: {state['site_id']}"
+            f"✅ Thanks, {state['full_name']}!\n📄 Starting audit for Site ID: {state['site_id']}\n📋 Template: {template_name}"
         )
         await send_next_question(update, context, user_id)
         return
