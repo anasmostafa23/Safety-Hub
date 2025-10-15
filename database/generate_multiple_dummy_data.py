@@ -14,7 +14,9 @@ from models import Base, User, Audit, Response
 fake = Faker()
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "safetyhub.db")
-TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "../templates")
+TEMPLATES_DIR = os.path.join(BASE_DIR, "..", "templates")
+
+
 
 NUM_USERS = 50
 NUM_AUDITS = 1200
@@ -30,19 +32,45 @@ session = Session()
 # Load multiple templates
 # --------------------------
 def load_all_templates():
-    """Load all template JSON files inside the templates directory."""
+    """Load all valid template JSON files inside the templates directory."""
     templates = []
+
+    # Make sure folder exists
+    if not os.path.exists(TEMPLATES_DIR):
+        raise FileNotFoundError(f"Templates directory not found: {TEMPLATES_DIR}")
+
     for fname in os.listdir(TEMPLATES_DIR):
-        if fname.endswith(".json"):
-            path = os.path.join(TEMPLATES_DIR, fname)
+        if not fname.endswith(".json"):
+            continue
+
+        path = os.path.join(TEMPLATES_DIR, fname)
+
+        try:
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                templates.append({
-                    "name": os.path.splitext(fname)[0],
-                    "data": data
-                })
+
+            # Validate structure
+            if not isinstance(data, dict):
+                print(f"⚠️ Skipping {fname}: not a valid JSON object")
+                continue
+            if "categories" not in data:
+                print(f"⚠️ Skipping {fname}: missing 'categories' key")
+                continue
+            if not data.get("template_name"):
+                print(f"⚠️ Adding missing 'template_name' for {fname}")
+                data["template_name"] = os.path.splitext(fname)[0]
+
+            templates.append({
+                "name": data["template_name"],
+                "data": data
+            })
+        except Exception as e:
+            print(f"❌ Error reading {fname}: {e}")
+
     if not templates:
-        raise FileNotFoundError("No templates found in templates directory.")
+        raise FileNotFoundError(f"No valid templates found in {TEMPLATES_DIR}")
+
+    print(f"✅ Loaded {len(templates)} templates from {TEMPLATES_DIR}")
     return templates
 
 
@@ -54,15 +82,16 @@ TEMPLATES = load_all_templates()
 def flatten_template(template_json):
     """Flatten a checklist JSON into a list of questions with category metadata."""
     flat = []
-    for category in template_json["categories"]:
+    # Access the actual template data
+    template_data = template_json.get("data", template_json)
+    
+    for category in template_data["categories"]:
         cat_name = category["name"]
         for q in category["questions"]:
             q_copy = q.copy()
             q_copy["category"] = cat_name
             flat.append(q_copy)
     return flat
-
-
 # --------------------------
 # Response probability setup
 # --------------------------
@@ -144,8 +173,8 @@ for idx in range(NUM_AUDITS):
 
     # Pick a random template
     chosen_template = random.choice(TEMPLATES)
-    template_name = chosen_template["name"]
-    flat_qs = flatten_template(chosen_template["data"])
+    template_name = chosen_template["template_name"] if "template_name" in chosen_template else chosen_template["name"]
+    flat_qs = flatten_template(chosen_template)
 
     # Create timestamp weighted toward work hours
     hour = random.choices(
@@ -159,7 +188,8 @@ for idx in range(NUM_AUDITS):
     audit = Audit(
         user_id=user.telegram_id,
         site_id=site_id,
-        timestamp=timestamp
+        timestamp=timestamp,
+        title=template_name
     )
     session.add(audit)
     session.commit()
