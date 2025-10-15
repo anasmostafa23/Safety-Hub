@@ -1,4 +1,4 @@
-# 🛡️ Safety-Hub / Безопасность-Хаб
+# 🛡️ Safety-Hub 
 
 <div align="center">
 
