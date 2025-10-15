@@ -7,27 +7,36 @@ from models import User, Audit, Response, Base
 import seaborn as sns
 import os
 import numpy as np
-import squarify
-from math import pi
-from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
+from st_aggrid import AgGrid, GridOptionsBuilder
 from datetime import timedelta
 import time
+from dotenv import load_dotenv
+import openai
+import json
+
+load_dotenv()
+api_key = os.getenv("OPENAI_API_KEY")
+print("API Key:", api_key)
+
+if not api_key:
+    raise ValueError("OpenAI API key not configured")
+
+openai.api_key = api_key  # <-- This is the important part
+client = openai  # You can now use `client.chat.completions.create(...)`
+
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 db_path = os.path.join(BASE_DIR, "safetyhub.db")
 engine = create_engine(f"sqlite:///{db_path}")
 
-# Setup database connection
 Session = sessionmaker(bind=engine)
 session = Session()
 
-# Fetch all data
 audits = session.query(Audit).join(User).order_by(Audit.timestamp.desc()).all()
 users = session.query(User).all()
 
 st.title("Safetyhub Audit Dashboard")
 
-# Load all responses into a DataFrame
 @st.cache_data
 def load_all_responses():
     responses = []
@@ -49,10 +58,8 @@ def load_all_responses():
 
 df = load_all_responses()
 
-# ===== FILTERING SIDEBAR - MOVED TO TOP =====
 st.sidebar.header("🔎 Filter Data")
 
-# Auto-refresh settings
 st.sidebar.header("🔄 Auto-Refresh Settings")
 refresh_interval = st.sidebar.slider(
     "Refresh Interval (seconds)",
@@ -65,15 +72,14 @@ refresh_interval = st.sidebar.slider(
 
 enable_auto_refresh = st.sidebar.checkbox(
     "Enable Auto-Refresh",
-    value=True,
+    value=False,
     help="Automatically refresh dashboard data at the specified interval"
 )
 
-# Template filter is FIRST and PRIMARY
 selected_template = st.sidebar.selectbox(
     "🔹 **Audit Template** (Required)",
     ["All"] + sorted(df["title"].dropna().unique().tolist()),
-    index=1 if len(df["title"].dropna().unique().tolist()) > 0 else 0,  # Default to first template
+    index=1 if len(df["title"].dropna().unique().tolist()) > 0 else 0,
     help="Select which audit template to view"
 )
 
@@ -82,7 +88,6 @@ selected_name = st.sidebar.selectbox("Filter by Engineer", ["All"] + sorted(df["
 start_date = st.sidebar.date_input("Start Date", value=df["Timestamp"].min())
 end_date = st.sidebar.date_input("End Date", value=df["Timestamp"].max())
 
-# ===== APPLY FILTERS =====
 filtered_df = df.copy()
 if selected_template != "All":
     filtered_df = filtered_df[filtered_df["title"] == selected_template]
@@ -98,17 +103,14 @@ if filtered_df.empty:
     session.close()
     st.stop()
 
-# ===== RECALCULATE STATISTICS BASED ON FILTERED DATA =====
 @st.cache_data
 def calculate_filtered_stats(df):
     global_counts = df.groupby(["Keyword", "Response"]).size().unstack(fill_value=0)
     global_percent = global_counts.div(global_counts.sum(axis=1), axis=0) * 100
     return global_counts, global_percent
 
-# This is now the "global" baseline - but it's scoped to the selected template
 global_counts, global_percent = calculate_filtered_stats(filtered_df)
 
-# Calculate site-level stats
 @st.cache_data
 def calculate_site_stats(df):
     site_counts = df.groupby(["site_id", "Keyword", "Response"]).size().unstack(fill_value=0)
@@ -117,7 +119,6 @@ def calculate_site_stats(df):
 
 site_counts, site_percent = calculate_site_stats(filtered_df)
 
-# Calculate engineer stats
 @st.cache_data
 def calculate_engineer_stats(df):
     engineer_metrics = df.groupby("full_name").agg(
@@ -135,7 +136,6 @@ def calculate_engineer_stats(df):
 
 engineer_metrics, engineer_site_visits, engineer_kw, engineer_kw_percent = calculate_engineer_stats(filtered_df)
 
-# Summary statistics
 st.markdown("### 📊 Summary Statistics")
 st.info(f"📋 Viewing template: **{selected_template}**" if selected_template != "All" else "📋 Viewing: **All Templates**")
 
@@ -144,12 +144,12 @@ col1.metric("Total Audits", len(filtered_df["Audit ID"].unique()))
 col2.metric("Unique Engineers", len(filtered_df["full_name"].unique()))
 col3.metric("Unique Sites", len(filtered_df["site_id"].unique()))
 
-# Main tabs
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🌍 Global Insights", 
     "📍 Site Insights",
     "👤 Individual Engineer",
-    "📝 Individual Audits"
+    "📝 Individual Audits",
+    "🤖 AI Assistant"
 ])
 
 with tab1:
@@ -170,7 +170,7 @@ with tab1:
     st.pyplot(fig)
 
 with tab2:
-    st.header("🏗️ Site Insights")
+    st.header("Site Insights")
     
     if selected_site == "All":
         site = st.selectbox("Select a Site", sorted(filtered_df["site_id"].unique()))
@@ -208,7 +208,7 @@ with tab2:
     ])
     
     with site_tab1:
-        st.markdown("#### 🕒 Compliance Trend")
+        st.markdown("#### Compliance Trend")
         monthly_compliance = site_data[site_data['Response']=='Yes'].groupby(
             site_data['Timestamp'].dt.to_period('M')
         ).size() / site_data.groupby(site_data['Timestamp'].dt.to_period('M')).size() * 100
@@ -223,7 +223,7 @@ with tab2:
         st.pyplot(fig)
     
     with site_tab2:
-        st.markdown("#### 🚨 Issue Frequency")
+        st.markdown("#### Issue Frequency")
 
         monthly_issues = site_data[site_data['Response']=='No'].groupby(
             site_data['Timestamp'].dt.to_period('M')).size()
@@ -235,9 +235,9 @@ with tab2:
             ax.set_xlabel("")
             st.pyplot(fig)
         else:
-            st.info("🎉 No safety issues found for this site in the selected time period!")
+            st.info("No safety issues found for this site in the selected time period!")
         
-        st.markdown("#### 🔎 Top 5 Problem Areas")
+        st.markdown("#### Top 5 Problem Areas")
 
         issue_keywords = site_data[site_data['Response']=='No']['Keyword'].value_counts().nlargest(5)
 
@@ -263,10 +263,10 @@ with tab2:
             
             st.pyplot(fig)
         else:
-            st.success("🎉 No safety issues found for this site!")
+            st.success("No safety issues found for this site!")
 
 with tab3:
-    st.header("👤 Individual Engineer Insights")
+    st.header("Individual Engineer Insights")
     
     if selected_name == "All":
         engineer = st.selectbox("Select Engineer", sorted(filtered_df["full_name"].unique()))
@@ -291,14 +291,11 @@ with tab3:
     with comp_tab1:
         st.markdown("**Comparison Against Peer Groups**")
 
-        # Defensive copy
         em = engineer_metrics.copy()
 
-        # Handle grouping safely
         if em["total_audits"].nunique() <= 1 or len(em) < 3:
             em["peer_group"] = "Uniform Activity"
         else:
-            # Try quantile-based split, fallback to percentile binning
             try:
                 n_unique = em["total_audits"].nunique()
                 n_quantiles = min(4, n_unique)
@@ -310,7 +307,6 @@ with tab3:
                 }
                 labels = label_map.get(n_quantiles, [f"Group {i+1}" for i in range(n_quantiles)])
 
-                # Compute actual bins
                 cuts, bins = pd.qcut(
                     em["total_audits"],
                     q=n_quantiles,
@@ -318,7 +314,6 @@ with tab3:
                     duplicates="drop",
                 )
 
-                # Ensure label length matches
                 valid_labels = labels[: len(bins) - 1]
                 em["peer_group"] = pd.cut(
                     em["total_audits"],
@@ -327,7 +322,6 @@ with tab3:
                     include_lowest=True,
                 )
             except ValueError:
-                # Fallback: use percentile binning
                 em["peer_group"] = pd.cut(
                     em["total_audits"],
                     bins=np.linspace(
@@ -338,8 +332,7 @@ with tab3:
                     labels=["Low", "Medium", "High"],
                     include_lowest=True,
                 )
-            except Exception as e:
-                st.warning(f"⚠️ Fallback applied due to grouping issue: {e}")
+            except Exception:
                 em["peer_group"] = "Uniform Activity"
 
         engineer_metrics["peer_group"] = em["peer_group"]
@@ -348,12 +341,6 @@ with tab3:
             em["full_name"] == engineer, "peer_group"
         ].values[0]
 
-        st.write(f"{engineer} is in the **{current_group}** peer group (based on audit volume)")
-
-
-        current_group = engineer_metrics.loc[
-            engineer_metrics['full_name'] == engineer, 'peer_group'].values[0]
-        
         st.write(f"{engineer} is in the **{current_group}** peer group (based on audit volume)")
         
         peer_data = engineer_metrics[engineer_metrics['peer_group'] == current_group]
@@ -403,12 +390,13 @@ with tab3:
         monthly_pct = monthly.div(monthly.sum(axis=1), axis=0) * 100
         
         fig, ax = plt.subplots(figsize=(10, 4))
-        monthly_pct['Yes'].plot(
-            kind='line', 
-            marker='o', 
-            ax=ax, 
-            label=engineer
-        )
+        if 'Yes' in monthly_pct.columns:
+            monthly_pct['Yes'].plot(
+                kind='line', 
+                marker='o', 
+                ax=ax, 
+                label=engineer
+            )
         
         if 'peer_group' in locals():
             peer_group_avg = filtered_df[
@@ -451,7 +439,7 @@ with tab3:
         eng_kw_pct = eng_kw.div(eng_kw.sum(axis=1), axis=0) * 100
         
         comparison = pd.DataFrame({
-            'Engineer': eng_kw_pct['Yes'],
+            'Engineer': eng_kw_pct.get('Yes', 0),
             'Global': global_percent['Yes']
         }).dropna()
         
@@ -502,7 +490,7 @@ with tab3:
         st.pyplot(fig)
 
 with tab4:
-    st.header("📝 Audit Inspector")
+    st.header("Audit Inspector")
     
     filtered_audits = session.query(Audit).join(User).filter(
         Audit.timestamp.between(start_date, end_date + timedelta(days=1))
@@ -548,19 +536,19 @@ with tab4:
     st.subheader("Audit Responses")
     responses = session.query(Response).filter_by(audit_id=audit.id).all()
     
-    df = pd.DataFrame([{
+    df_responses = pd.DataFrame([{
         "Category": r.category,
         "Keyword": r.keyword,
         "Question": r.question[:60] + "..." if len(r.question) > 60 else r.question,
         "Response": r.response,
     } for r in responses])
     
-    gb = GridOptionsBuilder.from_dataframe(df)
+    gb = GridOptionsBuilder.from_dataframe(df_responses)
     gb.configure_selection('single', use_checkbox=False)
     grid_options = gb.build()
     
     grid_response = AgGrid(
-        df,
+        df_responses,
         gridOptions=grid_options,
         height=min(400, 50 + len(responses)*40),
         theme="streamlit",
@@ -570,18 +558,143 @@ with tab4:
     
     st.download_button(
         "Export to CSV",
-        df.to_csv(index=False).encode('utf-8'),
+        df_responses.to_csv(index=False).encode('utf-8'),
         f"audit_{selected_id}_responses.csv",
         "text/csv"
     )
 
-# ===== AUTO-REFRESH MECHANISM =====
+# ===== AI ASSISTANT TAB =====
+with tab5:
+    st.header("🤖 AI Safety Insights Assistant")
+    st.caption("Ask questions about audit trends, compliance patterns, and safety recommendations")
+
+    # Initialize OpenAI client once
+    import openai
+    client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    # Initialize session state
+    if "assistant_history" not in st.session_state:
+        st.session_state.assistant_history = []
+    if "processing" not in st.session_state:
+        st.session_state.processing = False
+
+    # Build AI context
+    def build_data_context():
+        context = {
+            "template_name": selected_template,
+            "date_range": f"{start_date} to {end_date}",
+            "total_audits": len(filtered_df["Audit ID"].unique()),
+            "total_engineers": len(filtered_df["full_name"].unique()),
+            "total_sites": len(filtered_df["site_id"].unique()),
+            "overall_compliance": f"{(filtered_df['Response'] == 'Yes').mean() * 100:.1f}%",
+            "top_issues": filtered_df[filtered_df['Response']=='No']['Keyword'].value_counts().head(5).to_dict(),
+            "best_performing_keywords": global_percent['Yes'].nlargest(5).to_dict(),
+            "worst_performing_keywords": global_percent['Yes'].nsmallest(5).to_dict(),
+            "site_performance": filtered_df.groupby('site_id').apply(lambda x: f"{(x['Response'] == 'Yes').mean() * 100:.1f}%").to_dict(),
+            "engineer_performance": filtered_df.groupby('full_name').apply(lambda x: f"{(x['Response'] == 'Yes').mean() * 100:.1f}%").to_dict(),
+        }
+        return context
+
+    # Quick action buttons
+    st.markdown("**💡 Quick Questions:**")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        if st.button("📊 Overall Summary"):
+            st.session_state.quick_query = "Give me an overall summary of the current audit data"
+            st.session_state.processing = False  # Reset processing state
+    with col2:
+        if st.button("⚠️ Top Issues"):
+            st.session_state.quick_query = "What are the top 3 safety issues I should focus on?"
+            st.session_state.processing = False  # Reset processing state
+    with col3:
+        if st.button("📈 Recommendations"):
+            st.session_state.quick_query = "What are your top recommendations based on this data?"
+            st.session_state.processing = False  # Reset processing state
+
+    # Control buttons
+    col_a, col_b = st.columns([1, 5])
+    with col_a:
+        if st.button("🗑️ Clear Chat"):
+            st.session_state.assistant_history = []
+            st.session_state.processing = False
+            if "quick_query" in st.session_state:
+                del st.session_state.quick_query
+            st.rerun()  # Use st.rerun() instead of st.experimental_rerun()
+    with col_b:
+        with st.expander("🔍 View AI Data Context"):
+            st.json(build_data_context())
+
+    st.divider()
+
+    # --- Scrollable chat container ---
+    chat_container = st.container()
+    with chat_container:
+        for msg in st.session_state.assistant_history:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
+
+    # --- Determine user query ---
+    user_query = None
+    if "quick_query" in st.session_state and not st.session_state.processing:
+        user_query = st.session_state.quick_query
+        del st.session_state.quick_query
+        st.session_state.processing = True
+
+    # --- Input stays at bottom ---
+    user_input = st.chat_input("💬 Ask about compliance, trends, or get recommendations...", key="user_chat_input")
+    if user_input and not st.session_state.processing:
+        user_query = user_input
+        st.session_state.processing = True
+
+    # --- Process AI query ---
+    if user_query and st.session_state.processing:
+        if not client.api_key:
+            st.error("⚠️ OpenAI API key not configured.")
+            st.session_state.processing = False
+        else:
+            st.session_state.assistant_history.append({"role": "user", "content": user_query})
+            context_str = json.dumps(build_data_context(), indent=2)
+            system_prompt = f"""You are SafetyBot, a professional safety audit analyst. Use the data context below:
+
+{context_str}
+
+Answer concisely, cite metrics, prioritize critical issues, and provide actionable recommendations."""
+
+            with st.chat_message("user"):
+                st.markdown(user_query)
+
+            with st.chat_message("assistant"):
+                message_placeholder = st.empty()
+                full_response = ""
+                try:
+                    from openai import OpenAI
+                    stream = client.chat.completions.create(
+                        model="gpt-4o-mini",
+                        messages=[{"role": "system", "content": system_prompt}] +
+                                 [{"role": m["role"], "content": m["content"]} for m in st.session_state.assistant_history],
+                        temperature=0.5,
+                        max_tokens=800,
+                        stream=True
+                    )
+
+                    for chunk in stream:
+                        content = getattr(chunk.choices[0].delta, "content", None)
+                        if content:
+                            full_response += content
+                            message_placeholder.markdown(full_response + "▌")
+                    message_placeholder.markdown(full_response)
+
+                    st.session_state.assistant_history.append({"role": "assistant", "content": full_response})
+
+                except Exception as e:
+                    message_placeholder.error(f"❌ Error: {str(e)}")
+                    st.session_state.assistant_history.append({"role": "assistant", "content": f"Error: {str(e)}"})
+
+            st.session_state.processing = False
+            st.rerun()  # Force rerun after processing to show chat input again
+
 if enable_auto_refresh:
-    st.info(f"🔄 Dashboard will refresh automatically every {refresh_interval} seconds...")
-    # Add a small delay to show the refresh message
-    time.sleep(2)
+    time.sleep(refresh_interval)
     st.rerun()
-else:
-    st.info("🔄 Auto-refresh is disabled. Enable it in the sidebar to see live updates.")
 
 session.close()

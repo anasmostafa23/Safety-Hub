@@ -11,3 +11,4 @@ squarify
 streamlit-aggrid
 pdfplumber
 openai
+streamlit-chat
