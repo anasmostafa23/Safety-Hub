@@ -4,6 +4,7 @@ from utils.template_loader import load_template
 from utils.pdf_generator import generate_pdf
 from database.db import upsert_user, create_audit, save_responses
 from database.models import Session , init_db
+from handlers.admin import is_admin
 
 
 # In-memory user state
@@ -185,3 +186,48 @@ async def handle_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     await update.message.reply_text("Please use the buttons to respond.")
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show all available bot commands with descriptions."""
+    user_id = update.effective_user.id
+
+    # Regular user commands (available to all users)
+    regular_commands = {
+        "/start": "🚀 Start a new safety audit questionnaire",
+        "/myid": "🆔 Show your Telegram user ID",
+        "/help": "📖 Show this help message"
+    }
+
+    # Admin commands (only available to admins)
+    admin_commands = {
+        "/upload_audit": "📄 Upload a PDF/DOCX file to create a new audit template",
+        "/list_templates": "📋 List all available audit templates",
+        "/select_template": "✅ Activate a specific template for audits",
+        "/current_template": "📊 Show the currently active template"
+    }
+
+    # Build the help message
+    help_text = "🤖 **Safety Hub Bot Commands**\n\n"
+
+    # Add regular commands
+    help_text += "👤 **Available to all users:**\n"
+    for command, description in regular_commands.items():
+        help_text += f"• `{command}` - {description}\n"
+
+    help_text += "\n"
+
+    # Add admin commands (check if user is admin)
+    if is_admin(user_id):
+        help_text += "👑 **Admin commands:**\n"
+        for command, description in admin_commands.items():
+            help_text += f"• `{command}` - {description} (only admin)\n"
+    else:
+        help_text += "👑 **Admin commands:**\n"
+        help_text += "❌ *Contact an admin to use these commands*\n"
+        for command, description in admin_commands.items():
+            help_text += f"• `{command}` - {description} (only admin)\n"
+
+    help_text += "\n"
+    help_text += "💡 *Use /start to begin a safety audit!*"
+
+    await update.message.reply_text(help_text, parse_mode="Markdown")

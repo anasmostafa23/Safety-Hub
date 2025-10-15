@@ -12,7 +12,7 @@ from telegram.ext import (
     filters, CallbackQueryHandler
 )
 
-from handlers.audit import start_audit, handle_response, button_click
+from handlers.audit import start_audit, handle_response, button_click, help_command
 from handlers.admin import (
     upload_audit, handle_document, handle_template_name,
     list_templates, select_template, current_template
@@ -31,6 +31,7 @@ def main():
     # Commands
     app.add_handler(CommandHandler("start", start_audit))
     app.add_handler(CommandHandler("myid", my_id))
+    app.add_handler(CommandHandler("help", help_command))
     app.add_handler(CommandHandler("upload_audit", upload_audit))
 
     # Admin template management commands
