@@ -1,3 +1,14 @@
 python-telegram-bot==20.8
 reportlab==3.6.12
 python-dotenv
+sqlalchemy
+streamlit
+faker
+matplotlib
+pandas
+sns
+squarify
+streamlit-aggrid
+pdfplumber
+openai
+streamlit-chat

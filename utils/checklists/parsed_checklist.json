@@ -1,0 +1,122 @@
+[
+  {
+    "question": "Are all team members competent, certified and authorized to do the job?",
+    "keyword": "members_competent",
+    "options": [
+      "YES",
+      "NO",
+      "N/A"
+    ],
+    "detected_answer": "YES"
+  },
+  {
+    "question": "Are all team members medically fit to do the job they are assigned to?",
+    "keyword": "members_medically",
+    "options": [
+      "YES",
+      "NO",
+      "N/A"
+    ],
+    "detected_answer": "NO"
+  },
+  {
+    "question": "Is a competent supervisor available on site?",
+    "keyword": "competent_supervisor",
+    "options": [
+      "YES",
+      "NO",
+      "N/A"
+    ],
+    "detected_answer": "N/A"
+  },
+  {
+    "question": "Is any high-risk activity performed by a minimum of two personnel, with at least one trained on emergency procedures?",
+    "keyword": "emergency_procedures",
+    "options": [
+      "YES",
+      "NO",
+      "N/A"
+    ],
+    "detected_answer": "NO"
+  },
+  {
+    "question": "Are all tools and equipment inspected before use?",
+    "keyword": "equipment_inspected",
+    "options": [
+      "YES",
+      "NO",
+      "N/A"
+    ],
+    "detected_answer": "N/A"
+  },
+  {
+    "question": "Is all equipment certified and within its inspection date?",
+    "keyword": "certified_inspection",
+    "options": [
+      "YES",
+      "NO",
+      "N/A"
+    ],
+    "detected_answer": "YES"
+  },
+  {
+    "question": "Are defective tools and equipment tagged and removed from service?",
+    "keyword": "equipment_tagged",
+    "options": [
+      "YES",
+      "NO",
+      "N/A"
+    ],
+    "detected_answer": "NO"
+  },
+  {
+    "question": "Is personal protective equipment (PPE) available and in good condition?",
+    "keyword": "equipment_ppe",
+    "options": [
+      "YES",
+      "NO",
+      "N/A"
+    ],
+    "detected_answer": "N/A"
+  },
+  {
+    "question": "Are emergency exits and escape routes clearly marked and accessible?",
+    "keyword": "emergency_exits",
+    "options": [
+      "YES",
+      "NO",
+      "N/A"
+    ],
+    "detected_answer": "NO"
+  },
+  {
+    "question": "Is the work area free from slip, trip, and fall hazards?",
+    "keyword": "fall_hazards",
+    "options": [
+      "YES",
+      "NO",
+      "N/A"
+    ],
+    "detected_answer": "NO"
+  },
+  {
+    "question": "Are hazardous materials properly labeled and stored?",
+    "keyword": "hazardous_materials",
+    "options": [
+      "YES",
+      "NO",
+      "N/A"
+    ],
+    "detected_answer": "YES"
+  },
+  {
+    "question": "Is adequate lighting provided in all work areas?",
+    "keyword": "adequate_lighting",
+    "options": [
+      "YES",
+      "NO",
+      "N/A"
+    ],
+    "detected_answer": "N/A"
+  }
+]

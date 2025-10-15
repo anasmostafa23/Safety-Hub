@@ -9,3 +9,6 @@ exports/
 *.egg-info/
 *.egg   
 .env
+Untitled.java
+uploads/
+templates/
